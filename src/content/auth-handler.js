@@ -1,43 +1,49 @@
 /**
  * Auth Handler Content Script
+ * BULLETPROOF VERSION
  */
 
-console.log('[Verality Auth] Content Script Loaded');
+console.log('[Verality Auth] Content Script Initialized');
 
 function handleAuth(token, origin) {
     if (!chrome.runtime?.id) {
-        console.error('[Verality Auth] Extension context invalidated. Please refresh the page.');
+        console.error('[Verality Auth] Extension context invalidated.');
         return;
     }
 
-    // Clean up origin
-    let cleanOrigin = origin;
-    if (cleanOrigin.endsWith('/')) cleanOrigin = cleanOrigin.slice(0, -1);
+    if (!token || typeof token !== 'string' || token.length < 10) {
+        console.error('[Verality Auth] Received invalid or empty token:', token);
+        return;
+    }
 
-    // If we are on www.verality.io, we should probably target verality.io for the API
-    // but keeping the exact origin is safer for local dev.
-    const apiTarget = cleanOrigin.includes('localhost') ? 'http://localhost:3000' : 'https://verality.io';
+    console.log('[Verality Auth] Token verified in content script, sending to background...');
 
-    console.log('[Verality Auth] Sending token to background. Target API:', apiTarget);
+    // Explicitly set in local storage first to be 100% sure
+    const apiTarget = origin.includes('localhost') ? 'http://localhost:3000' : 'https://verality.io';
 
-    // Use the double-layer approach
-    chrome.storage.local.set({ extension_token: token, api_base_url: apiTarget }, () => {
+    chrome.storage.local.set({
+        extension_token: token,
+        api_base_url: apiTarget
+    }, () => {
+        console.log('[Verality Auth] Token written to local storage');
+
+        // Notify background to verify and update state
         chrome.runtime.sendMessage({
             action: 'AUTH_SUCCESS',
             token: token,
             origin: apiTarget
         }, (response) => {
             if (chrome.runtime.lastError) {
-                console.error('[Verality Auth] runtime error:', chrome.runtime.lastError.message);
+                console.error('[Verality Auth] Runtime error:', chrome.runtime.lastError.message);
                 window.postMessage({ type: 'VERALITY_EXTENSION_AUTH_ERROR', error: chrome.runtime.lastError.message }, '*');
                 return;
             }
 
             if (response && response.success) {
-                console.log('[Verality Auth] Success verified for', response.user?.email);
+                console.log('[Verality Auth] Final verification successful for', response.user?.email);
                 window.postMessage({ type: 'VERALITY_EXTENSION_AUTH_SUCCESS_ACK' }, '*');
             } else {
-                console.error('[Verality Auth] Failed:', response?.error);
+                console.error('[Verality Auth] Verification failed:', response?.error);
                 window.postMessage({ type: 'VERALITY_EXTENSION_AUTH_ERROR', error: response?.error || 'Verification failed' }, '*');
             }
         });
@@ -45,13 +51,18 @@ function handleAuth(token, origin) {
 }
 
 window.addEventListener('message', (event) => {
+    // Safety checks
     if (event.source !== window) return;
-    if (event.data && event.data.type === 'VERALITY_EXTENSION_AUTH') {
-        handleAuth(event.data.token, window.location.origin);
+
+    const data = event.data;
+    if (data && data.source === "verality-auth-website" && data.type === 'VERALITY_EXTENSION_AUTH') {
+        console.log('[Verality Auth] Valid auth message received from website');
+        handleAuth(data.token, window.location.origin);
     }
 });
 
-// Signal readiness
+// Signal readiness to the page
 if (chrome.runtime?.id) {
+    console.log('[Verality Auth] Signaling READY');
     window.postMessage({ type: 'VERALITY_EXTENSION_READY' }, '*');
 }
