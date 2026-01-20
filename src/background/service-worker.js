@@ -4,37 +4,27 @@
 
 let API_BASE_URL = 'https://verality.io';
 
-// Ensure we have a default
 chrome.storage.local.get(['api_base_url'], (res) => {
-    if (res.api_base_url) {
-        API_BASE_URL = res.api_base_url;
-    } else {
-        chrome.storage.local.set({ api_base_url: API_BASE_URL });
-    }
+    if (res.api_base_url) API_BASE_URL = res.api_base_url;
 });
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-    if (message.action === 'FETCH_CREATORS') {
-        handleFetchCreators(message.query, sender.tab.id);
-        sendResponse({ status: 'started' });
-    } else if (message.action === 'AUTH_SUCCESS') {
-        // If the token came from localhost, allow switching
+    if (message.action === 'AUTH_SUCCESS') {
+        // ALWAYS prioritize verality.io apex unless it's localhost
+        let originBase = 'https://verality.io';
         if (message.origin && (message.origin.includes('localhost') || message.origin.includes('127.0.0.1'))) {
-            API_BASE_URL = 'http://localhost:3000';
-        } else {
-            API_BASE_URL = 'https://verality.io';
+            originBase = 'http://localhost:3000';
         }
 
-        chrome.storage.local.set({ api_base_url: API_BASE_URL });
-        chrome.storage.local.set({ extension_token: message.token }, () => {
-            verifyTokenWithAPI((res) => {
-                if (res.user) {
-                    sendResponse({ success: true, user: res.user });
-                } else {
-                    chrome.storage.local.remove('extension_token');
-                    sendResponse({ success: false, error: res.error });
-                }
-            });
+        API_BASE_URL = originBase;
+        console.log('[Verality BG] Auth Success. Targeting:', API_BASE_URL);
+
+        chrome.storage.local.set({
+            api_base_url: API_BASE_URL,
+            extension_token: message.token
+        }, () => {
+            // Pass token directly to avoid async RACE condition
+            verifyTokenWithAPI(sendResponse, message.token, API_BASE_URL);
         });
         return true;
     } else if (message.action === 'GET_USER') {
@@ -47,40 +37,51 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             sendResponse({ success: true });
         });
         return true;
+    } else if (message.action === 'FETCH_CREATORS') {
+        handleFetchCreators(message.query, sender.tab.id);
+        sendResponse({ status: 'started' });
     }
     return true;
 });
 
-async function verifyTokenWithAPI(sendResponse) {
+async function verifyTokenWithAPI(sendResponse, overrideToken = null, overrideBase = null) {
     try {
         const { extension_token, api_base_url } = await chrome.storage.local.get(['extension_token', 'api_base_url']);
-        const currentBase = api_base_url || API_BASE_URL;
+        const token = overrideToken || extension_token;
+        const currentBase = overrideBase || api_base_url || API_BASE_URL;
 
-        if (!extension_token) {
+        if (!token) {
             sendResponse({ error: 'UNAUTHENTICATED' });
             return;
         }
 
-        const response = await fetch(`${currentBase}/api/extension/me`, {
-            headers: { 'Authorization': `Bearer ${extension_token}` }
+        const verifyUrl = `${currentBase}/api/extension/me`;
+        console.log('[Verality BG] Verifying token at:', verifyUrl);
+
+        const response = await fetch(verifyUrl, {
+            headers: { 'Authorization': `Bearer ${token}` }
         });
 
         if (response.status === 401) {
-            await chrome.storage.local.remove('extension_token');
+            console.error('[Verality BG] Server rejected token (401)');
+            if (!overrideToken) await chrome.storage.local.remove('extension_token');
             sendResponse({ error: 'UNAUTHENTICATED' });
             return;
         }
 
         if (!response.ok) {
             const errText = await response.text();
-            sendResponse({ error: `API Error: ${response.status}` });
+            console.error('[Verality BG] API Error:', response.status, errText);
+            sendResponse({ error: `Server Error: ${response.status}` });
             return;
         }
 
         const data = await response.json();
-        sendResponse({ user: data });
+        console.log('[Verality BG] Auth Verified:', data.email);
+        sendResponse({ success: true, user: data });
     } catch (err) {
-        sendResponse({ error: `Network Error: ${err.message}` });
+        console.error('[Verality BG] Network error:', err.message);
+        sendResponse({ error: `Network: ${err.message}` });
     }
 }
 
@@ -103,42 +104,19 @@ async function handleFetchCreators(query, tabId) {
             body: JSON.stringify({ query, limit: 50, platform: 'youtube' })
         });
 
-        if (response.status === 402) {
-            const errorData = await response.json();
-            chrome.tabs.sendMessage(tabId, {
-                action: 'UPDATE_CREATORS',
-                error: `Insufficient credits (${errorData.remaining}/${errorData.cost}).`
-            });
-            return;
-        }
-
         if (response.status === 401) {
             await chrome.storage.local.remove('extension_token');
             chrome.tabs.sendMessage(tabId, { action: 'UPDATE_CREATORS', error: 'Session expired.' });
             return;
         }
 
-        if (!response.ok) throw new Error(`Search failed: ${response.status}`);
+        if (!response.ok) throw new Error(`Search failed (${response.status})`);
 
         const data = await response.json();
-        const creators = data.results.map(c => ({
-            channelId: c.verality_id || c.id,
-            title: c.name || c.full_name || c.handle,
-            thumbnail: c.picture || '',
-            subscriberCount: c.followers || 0,
-            avgViews: c.avg_views || 0,
-            engagementRate: c.engagement_rate || 0,
-            reason: c.reason || 'Strong niche match',
-            email: c.email || null,
-        }));
-
-        chrome.tabs.sendMessage(tabId, {
-            action: 'UPDATE_CREATORS',
-            creators: creators,
-            creditsRemaining: data.creditsRemaining
-        });
+        chrome.tabs.sendMessage(tabId, { action: 'UPDATE_CREATORS', creators: data.results });
 
     } catch (error) {
+        console.error('[Verality BG] Search error:', error);
         chrome.tabs.sendMessage(tabId, { action: 'UPDATE_CREATORS', error: error.message });
     }
 }
