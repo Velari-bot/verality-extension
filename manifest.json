@@ -53,7 +53,7 @@
         },
         {
             "matches": [
-                "*://localhost:3000/extension-connect*",
+                "http://localhost:3000/extension-connect*",
                 "*://verality.io/extension-connect*",
                 "*://www.verality.io/extension-connect*"
             ],
