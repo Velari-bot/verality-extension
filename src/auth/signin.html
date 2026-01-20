@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Verality Sign In</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+
+        .container {
+            background: white;
+            padding: 40px;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+            text-align: center;
+            max-width: 400px;
+        }
+
+        h1 {
+            margin: 0 0 10px 0;
+            color: #333;
+        }
+
+        p {
+            color: #666;
+            margin-bottom: 30px;
+        }
+
+        button {
+            background: white;
+            border: 1px solid #ddd;
+            padding: 12px 24px;
+            border-radius: 6px;
+            font-size: 16px;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            transition: all 0.2s;
+        }
+
+        button:hover {
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .status {
+            margin-top: 20px;
+            color: #666;
+            font-size: 14px;
+        }
+
+        .error {
+            color: #e53e3e;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>Sign in to Verality</h1>
+        <p>Connect your Google account to use the extension</p>
+
+        <button id="google-signin">
+            <svg width="18" height="18" viewBox="0 0 18 18">
+                <path
+                    d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.875 2.684-6.615z"
+                    fill="#4285F4" />
+                <path
+                    d="M9.003 18c2.43 0 4.467-.806 5.956-2.18L12.05 13.56c-.806.54-1.837.86-3.047.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332C2.438 15.983 5.482 18 9.003 18z"
+                    fill="#34A853" />
+                <path
+                    d="M3.964 10.71c-.18-.54-.282-1.117-.282-1.71s.102-1.17.282-1.71V4.958H.957C.347 6.173 0 7.548 0 9s.348 2.827.957 4.042l3.007-2.332z"
+                    fill="#FBBC05" />
+                <path
+                    d="M9.003 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.464.891 11.426 0 9.003 0 5.482 0 2.438 2.017.957 4.958L3.964 7.29c.708-2.127 2.692-3.71 5.036-3.71z"
+                    fill="#EA4335" />
+            </svg>
+            Sign in with Google
+        </button>
+
+        <div id="status" class="status"></div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+        import { getAuth, signInWithPopup, GoogleAuthProvider } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyCImCEmi5UP8_BrGgKXXhLTbYvVm7Du4wE",
+            authDomain: "ai-social-media-outreach-4e66c.firebaseapp.com",
+            projectId: "ai-social-media-outreach-4e66c"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const provider = new GoogleAuthProvider();
+
+        const button = document.getElementById('google-signin');
+        const status = document.getElementById('status');
+
+        button.addEventListener('click', async () => {
+            try {
+                status.textContent = 'Opening Google sign-in...';
+                button.disabled = true;
+
+                const result = await signInWithPopup(auth, provider);
+                const user = result.user;
+                const idToken = await user.getIdToken();
+
+                status.textContent = 'Getting extension token...';
+
+                // Exchange Firebase token for extension JWT
+                const response = await fetch('http://localhost:3000/api/extension/auth-token', {
+                    headers: { 'Authorization': `Bearer ${idToken}` }
+                });
+
+                if (!response.ok) {
+                    throw new Error('Failed to get extension token');
+                }
+
+                const { token } = await response.json();
+
+                // Send to background script
+                chrome.runtime.sendMessage({
+                    action: 'AUTH_SUCCESS',
+                    token: token,
+                    origin: 'http://localhost:3000'
+                }, (response) => {
+                    if (response && response.success) {
+                        status.textContent = '✓ Signed in successfully!';
+                        status.style.color = '#38a169';
+                        setTimeout(() => window.close(), 1500);
+                    } else {
+                        throw new Error(response?.error || 'Failed to authenticate');
+                    }
+                });
+
+            } catch (error) {
+                status.textContent = `Error: ${error.message}`;
+                status.classList.add('error');
+                button.disabled = false;
+            }
+        });
+    </script>
+</body>
+
+</html>

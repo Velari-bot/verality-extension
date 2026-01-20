@@ -1,42 +1,41 @@
 /**
  * Verality Background Service Worker
- * Simplified Web-Based OAuth
  */
 
-let API_BASE_URL = 'https://verality.io';
-
-function normalizeBaseUrl(url) {
-    if (!url) return 'https://verality.io';
-    let clean = url.replace(/\/$/, '');
-    if (clean.includes('verality.io') && !clean.includes('localhost')) {
-        return 'https://verality.io';
-    }
-    return clean;
-}
+let API_BASE_URL = 'http://localhost:3000';
 
 chrome.storage.local.get(['api_base_url'], (res) => {
-    if (res.api_base_url) API_BASE_URL = normalizeBaseUrl(res.api_base_url);
+    if (res.api_base_url) API_BASE_URL = res.api_base_url;
 });
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message.action === 'START_GOOGLE_AUTH') {
-        chrome.tabs.create({
-            url: `${API_BASE_URL}/extension-auth`,
-            active: true
+        // Open Firebase auth popup
+        chrome.windows.create({
+            url: chrome.runtime.getURL('src/auth/signin.html'),
+            type: 'popup',
+            width: 500,
+            height: 600
         });
         sendResponse({ success: true });
         return true;
     } else if (message.action === 'AUTH_SUCCESS') {
         const token = message.token;
-        const origin = normalizeBaseUrl(message.origin || API_BASE_URL);
+        const origin = message.origin || 'http://localhost:3000';
 
         if (!token) {
+            console.error('[Verality BG] No token provided');
             sendResponse({ success: false, error: 'Empty token' });
             return true;
         }
 
+        console.log('[Verality BG] Storing token and verifying...');
         API_BASE_URL = origin;
-        chrome.storage.local.set({ api_base_url: origin, extension_token: token }, () => {
+
+        chrome.storage.local.set({
+            api_base_url: origin,
+            extension_token: token
+        }, () => {
             verifyTokenWithAPI(sendResponse, token, origin);
         });
         return true;
@@ -45,7 +44,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         return true;
     } else if (message.action === 'CLEAR_STORAGE') {
         chrome.storage.local.clear(() => {
-            API_BASE_URL = 'https://verality.io';
+            API_BASE_URL = 'http://localhost:3000';
             chrome.storage.local.set({ api_base_url: API_BASE_URL });
             sendResponse({ success: true });
         });
@@ -62,16 +61,16 @@ async function verifyTokenWithAPI(sendResponse, overrideToken = null, overrideBa
     try {
         const storage = await chrome.storage.local.get(['extension_token', 'api_base_url']);
         const token = overrideToken || storage.extension_token;
-        const base = normalizeBaseUrl(overrideBase || storage.api_base_url || API_BASE_URL);
+        const base = overrideBase || storage.api_base_url || API_BASE_URL;
 
         if (!token) {
-            console.error('[Verality BG] NO TOKEN');
+            console.error('[Verality BG] No token in storage');
             sendResponse({ error: 'UNAUTHENTICATED' });
             return;
         }
 
-        console.log('[Verality BG] Verifying token at:', base);
-        console.log('[Verality BG] Token:', token.substring(0, 30) + '...');
+        console.log('[Verality BG] Verifying at:', base);
+        console.log('[Verality BG] Token length:', token.length);
 
         const url = `${base}/api/extension/me`;
 
@@ -79,30 +78,30 @@ async function verifyTokenWithAPI(sendResponse, overrideToken = null, overrideBa
             method: 'GET',
             headers: {
                 'Authorization': `Bearer ${token}`,
-                'Accept': 'application/json',
-                'Content-Type': 'application/json'
-            },
-            cache: 'no-store'
+                'Accept': 'application/json'
+            }
         });
 
-        console.log('[Verality BG] Response status:', response.status);
-
-        const data = await response.json().catch(() => ({}));
-        console.log('[Verality BG] Response data:', data);
+        console.log('[Verality BG] Status:', response.status);
 
         if (response.status === 401) {
-            sendResponse({ error: `AUTH_FAILED: ${data.details || data.error || 'Token rejected'}` });
+            const data = await response.json().catch(() => ({}));
+            console.error('[Verality BG] 401:', data);
+            sendResponse({ error: `AUTH_FAILED: ${data.details || 'Unauthorized'}` });
             return;
         }
 
         if (!response.ok) {
+            console.error('[Verality BG] Error:', response.status);
             sendResponse({ error: `Server Error: ${response.status}` });
             return;
         }
 
+        const data = await response.json();
+        console.log('[Verality BG] Success! User:', data.email);
         sendResponse({ success: true, user: data });
     } catch (err) {
-        console.error('[Verality BG] Fetch error:', err);
+        console.error('[Verality BG] Exception:', err);
         sendResponse({ error: `Connection Error: ${err.message}` });
     }
 }
@@ -110,7 +109,7 @@ async function verifyTokenWithAPI(sendResponse, overrideToken = null, overrideBa
 async function handleFetchCreators(query, tabId) {
     try {
         const { extension_token, api_base_url } = await chrome.storage.local.get(['extension_token', 'api_base_url']);
-        const base = normalizeBaseUrl(api_base_url || API_BASE_URL);
+        const base = api_base_url || API_BASE_URL;
 
         if (!extension_token) return;
 
@@ -128,6 +127,6 @@ async function handleFetchCreators(query, tabId) {
             chrome.tabs.sendMessage(tabId, { action: 'UPDATE_CREATORS', creators: data.results });
         }
     } catch (error) {
-        console.error('[Verality BG] Search Error:', error.message);
+        console.error('[Verality BG] Search error:', error);
     }
 }
