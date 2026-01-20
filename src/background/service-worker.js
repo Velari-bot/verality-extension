@@ -63,9 +63,11 @@ async function verifyTokenWithAPI(sendResponse, overrideToken = null, overrideBa
         });
 
         if (response.status === 401) {
-            console.error('[Verality BG] Server rejected token (401)');
+            const errData = await response.json().catch(() => ({}));
+            const detail = errData.details || 'Verification failed';
+            console.error('[Verality BG] Server rejected token:', detail);
             if (!overrideToken) await chrome.storage.local.remove('extension_token');
-            sendResponse({ error: 'UNAUTHENTICATED' });
+            sendResponse({ error: `UNAUTHENTICATED: ${detail}` });
             return;
         }
 

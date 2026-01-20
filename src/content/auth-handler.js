@@ -10,14 +10,22 @@ function handleAuth(token, origin) {
         return;
     }
 
-    console.log('[Verality Auth] Sending token to background...');
+    // Clean up origin
+    let cleanOrigin = origin;
+    if (cleanOrigin.endsWith('/')) cleanOrigin = cleanOrigin.slice(0, -1);
+
+    // If we are on www.verality.io, we should probably target verality.io for the API
+    // but keeping the exact origin is safer for local dev.
+    const apiTarget = cleanOrigin.includes('localhost') ? 'http://localhost:3000' : 'https://verality.io';
+
+    console.log('[Verality Auth] Sending token to background. Target API:', apiTarget);
 
     // Use the double-layer approach
-    chrome.storage.local.set({ extension_token: token, api_base_url: 'https://verality.io' }, () => {
+    chrome.storage.local.set({ extension_token: token, api_base_url: apiTarget }, () => {
         chrome.runtime.sendMessage({
             action: 'AUTH_SUCCESS',
             token: token,
-            origin: origin
+            origin: apiTarget
         }, (response) => {
             if (chrome.runtime.lastError) {
                 console.error('[Verality Auth] runtime error:', chrome.runtime.lastError.message);
