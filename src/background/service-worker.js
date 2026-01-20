@@ -5,14 +5,24 @@
 
 let API_BASE_URL = 'https://verality.io';
 
+function normalizeBaseUrl(url) {
+    if (!url) return 'https://verality.io';
+    let clean = url.replace(/\/$/, '');
+    // Force apex domain for production to prevent redirect header stripping
+    if (clean.includes('verality.io') && !clean.includes('localhost')) {
+        return 'https://verality.io';
+    }
+    return clean;
+}
+
 chrome.storage.local.get(['api_base_url'], (res) => {
-    if (res.api_base_url) API_BASE_URL = res.api_base_url;
+    if (res.api_base_url) API_BASE_URL = normalizeBaseUrl(res.api_base_url);
 });
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message.action === 'AUTH_SUCCESS') {
         const token = message.token;
-        const origin = message.origin || 'https://verality.io';
+        const origin = normalizeBaseUrl(message.origin || 'https://verality.io');
 
         if (!token) {
             console.error('[Verality BG] Received AUTH_SUCCESS message but token is EMPTY');
@@ -21,7 +31,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         }
 
         console.log('[Verality BG] Received token from content script. Origin:', origin);
-        API_BASE_URL = origin.replace(/\/$/, '');
+        API_BASE_URL = origin;
 
         chrome.storage.local.set({
             api_base_url: API_BASE_URL,
@@ -53,7 +63,7 @@ async function verifyTokenWithAPI(sendResponse, overrideToken = null, overrideBa
     try {
         const storage = await chrome.storage.local.get(['extension_token', 'api_base_url']);
         const token = overrideToken || storage.extension_token;
-        const currentBase = (overrideBase || storage.api_base_url || API_BASE_URL).replace(/\/$/, '');
+        const currentBase = normalizeBaseUrl(overrideBase || storage.api_base_url || API_BASE_URL);
 
         if (!token) {
             console.warn('[Verality BG] Attempted verification but NO TOKEN in storage or message');
@@ -97,7 +107,7 @@ async function verifyTokenWithAPI(sendResponse, overrideToken = null, overrideBa
 async function handleFetchCreators(query, tabId) {
     try {
         const { extension_token, api_base_url } = await chrome.storage.local.get(['extension_token', 'api_base_url']);
-        const currentBase = (api_base_url || API_BASE_URL).replace(/\/$/, '');
+        const currentBase = normalizeBaseUrl(api_base_url || API_BASE_URL);
 
         if (!extension_token) {
             chrome.tabs.sendMessage(tabId, { action: 'UPDATE_CREATORS', error: 'Please sign in first.' });
