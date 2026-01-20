@@ -52,16 +52,24 @@ async function checkSessionAndGetToken(sendResponse) {
         }
 
         // Check if user has Firebase session cookies
-        console.log('[Verality BG] Checking for session cookies...');
+        console.log('[Verality BG] Checking for session cookies at:', base);
         const cookies = await chrome.cookies.getAll({
-            domain: 'localhost'
+            url: base
         });
 
         console.log('[Verality BG] Found cookies:', cookies.length);
-        const hasSession = cookies.some(c => c.name.includes('session') || c.name.includes('firebase'));
+        if (cookies.length > 0) {
+            console.log('[Verality BG] Cookie names:', cookies.map(c => c.name).join(', '));
+        }
 
-        if (!hasSession) {
-            console.log('[Verality BG] No session cookies found');
+        const hasSession = cookies.some(c =>
+            c.name.includes('session') ||
+            c.name.includes('firebase') ||
+            c.name.includes('__session')
+        );
+
+        if (!hasSession && cookies.length === 0) {
+            console.log('[Verality BG] No cookies found - user needs to log in');
             sendResponse({ error: 'UNAUTHENTICATED', needsLogin: true });
             return;
         }
