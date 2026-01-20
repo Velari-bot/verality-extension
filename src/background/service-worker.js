@@ -37,8 +37,7 @@ async function checkSessionAndGetToken(sendResponse) {
         if (storage.extension_token) {
             // Verify existing token
             const verifyResponse = await fetch(`${base}/api/extension/me`, {
-                headers: { 'Authorization': `Bearer ${storage.extension_token}` },
-                credentials: 'include'
+                headers: { 'Authorization': `Bearer ${storage.extension_token}` }
             });
 
             if (verifyResponse.ok) {
@@ -46,28 +45,58 @@ async function checkSessionAndGetToken(sendResponse) {
                 console.log('[Verality BG] Existing token valid:', data.email);
                 sendResponse({ success: true, user: data });
                 return;
+            } else {
+                console.log('[Verality BG] Existing token invalid, clearing...');
+                await chrome.storage.local.remove('extension_token');
             }
         }
 
-        // No valid token, check if user is logged in via cookies
-        console.log('[Verality BG] Checking session at:', base);
-        const sessionResponse = await fetch(`${base}/api/extension/session`, {
-            credentials: 'include' // Include cookies
+        // Check if user has Firebase session cookies
+        console.log('[Verality BG] Checking for session cookies...');
+        const cookies = await chrome.cookies.getAll({
+            domain: 'localhost'
         });
 
+        console.log('[Verality BG] Found cookies:', cookies.length);
+        const hasSession = cookies.some(c => c.name.includes('session') || c.name.includes('firebase'));
+
+        if (!hasSession) {
+            console.log('[Verality BG] No session cookies found');
+            sendResponse({ error: 'UNAUTHENTICATED', needsLogin: true });
+            return;
+        }
+
+        // Try to get token from session endpoint
+        console.log('[Verality BG] Session cookies found, fetching token...');
+        const sessionResponse = await fetch(`${base}/api/extension/session`, {
+            credentials: 'include',
+            headers: {
+                'Accept': 'application/json'
+            }
+        });
+
+        console.log('[Verality BG] Session response:', sessionResponse.status);
+
         if (sessionResponse.status === 401) {
-            console.log('[Verality BG] Not logged in');
+            console.log('[Verality BG] Session endpoint returned 401');
             sendResponse({ error: 'UNAUTHENTICATED', needsLogin: true });
             return;
         }
 
         if (!sessionResponse.ok) {
-            console.error('[Verality BG] Session check failed:', sessionResponse.status);
+            const errorText = await sessionResponse.text();
+            console.error('[Verality BG] Session check failed:', sessionResponse.status, errorText);
             sendResponse({ error: 'Session check failed' });
             return;
         }
 
         const { token, user } = await sessionResponse.json();
+
+        if (!token) {
+            console.error('[Verality BG] No token in response');
+            sendResponse({ error: 'No token received' });
+            return;
+        }
 
         // Store the new token
         await chrome.storage.local.set({
@@ -84,8 +113,11 @@ async function checkSessionAndGetToken(sendResponse) {
 
         if (verifyResponse.ok) {
             const userData = await verifyResponse.json();
+            console.log('[Verality BG] Token verified successfully');
             sendResponse({ success: true, user: userData });
         } else {
+            const errorText = await verifyResponse.text();
+            console.error('[Verality BG] Token verification failed:', verifyResponse.status, errorText);
             sendResponse({ error: 'Token verification failed' });
         }
 
