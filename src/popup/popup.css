@@ -1,24 +1,31 @@
-/* Verality Popup - Dark Theme integration */
+/* Verality Popup - Light Theme matching verality.io homepage */
 
 :root {
-    --bg-dark: #0a0a0b;
-    --card-bg: #161618;
-    --brand-purple: #a855f7;
-    --text-primary: #ffffff;
-    --text-secondary: #a1a1aa;
+    --bg-ivory: #fdfbf7;
+    --bg-white: #ffffff;
+    --brand-purple: #6B4BFF;
+    --text-primary: #111827;
+    --text-secondary: #6b7280;
+    --border-gray: #e5e7eb;
 }
 
 body {
     margin: 0;
     padding: 0;
     width: 350px;
-    background-color: var(--bg-dark);
+    background-color: var(--bg-ivory);
     font-family: 'Inter', -apple-system, system-ui, sans-serif;
     color: var(--text-primary);
+    /* Add the grid pattern from homepage */
+    background-image:
+        linear-gradient(to right, rgba(255, 255, 255, 0.5) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(255, 255, 255, 0.5) 1px, transparent 1px);
+    background-size: 30px 30px;
 }
 
 .verality-popup {
-    padding: 20px;
+    padding: 24px;
+    min-height: 400px;
 }
 
 .header {
@@ -31,19 +38,20 @@ body {
 .brand {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 12px;
 }
 
 .brand-logo {
     width: 28px;
     height: 28px;
     border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(107, 75, 255, 0.2);
 }
 
 .brand-name {
     font-weight: 800;
     font-size: 20px;
-    letter-spacing: -0.5px;
+    letter-spacing: -0.8px;
     color: var(--text-primary);
 }
 
@@ -51,33 +59,35 @@ body {
     display: flex;
     align-items: center;
     gap: 6px;
-    background: rgba(255, 255, 255, 0.03);
-    padding: 4px 12px;
+    background: white;
+    padding: 4px 14px;
     border-radius: 20px;
-    border: 1px solid rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--border-gray);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
 }
 
 .pulse-dot {
-    width: 8px;
-    height: 8px;
+    width: 7px;
+    height: 7px;
     background-color: #ef4444;
     /* Default to disconnected */
     border-radius: 50%;
 }
 
 .status-text {
-    font-size: 11px;
-    font-weight: 700;
+    font-size: 10px;
+    font-weight: 800;
     color: var(--text-secondary);
     text-transform: uppercase;
+    letter-spacing: 0.5px;
 }
 
 .hero-section h1 {
-    font-size: 26px;
-    font-weight: 800;
+    font-size: 28px;
+    font-weight: 900;
     line-height: 1.1;
     margin: 0 0 10px 0;
-    letter-spacing: -0.8px;
+    letter-spacing: -1px;
 }
 
 .purple-text {
@@ -94,35 +104,43 @@ body {
 .stats-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 12px;
+    gap: 14px;
     margin-bottom: 24px;
 }
 
 .stat-card {
-    background: var(--card-bg);
-    border: 1px solid rgba(255, 255, 255, 0.05);
-    border-radius: 12px;
-    padding: 12px;
+    background: var(--bg-white);
+    border: 1px solid var(--border-gray);
+    border-radius: 16px;
+    padding: 16px;
     display: flex;
     flex-direction: column;
     gap: 4px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.04);
+    transition: transform 0.2s;
+}
+
+.stat-card:hover {
+    transform: translateY(-2px);
 }
 
 .stat-label {
-    font-size: 11px;
-    font-weight: 600;
+    font-size: 10px;
+    font-weight: 800;
     color: var(--text-secondary);
     text-transform: uppercase;
+    letter-spacing: 0.05em;
 }
 
 .stat-val {
-    font-size: 16px;
-    font-weight: 700;
+    font-size: 18px;
+    font-weight: 900;
     color: var(--text-primary);
+    letter-spacing: -0.5px;
 }
 
 .view {
-    animation: fadeIn 0.3s ease-out;
+    animation: fadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .hidden {
@@ -132,7 +150,7 @@ body {
 @keyframes fadeIn {
     from {
         opacity: 0;
-        transform: translateY(10px);
+        transform: translateY(12px);
     }
 
     to {
@@ -143,20 +161,22 @@ body {
 
 .login-button {
     width: 100%;
-    padding: 12px;
-    background: linear-gradient(135deg, #6366f1 0%, #a855f7 100%);
+    padding: 16px;
+    background-color: #0a0a0a;
     border: none;
-    border-radius: 12px;
+    border-radius: 14px;
     color: white;
-    font-weight: 600;
-    font-size: 14px;
+    font-weight: 800;
+    font-size: 15px;
     cursor: pointer;
-    transition: all 0.2s;
+    transition: all 0.3s;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
 }
 
 .login-button:hover {
+    background-color: #262626;
     transform: translateY(-2px);
-    filter: brightness(1.1);
+    box-shadow: 0 15px 30px rgba(0, 0, 0, 0.15);
 }
 
 .user-info {
@@ -164,58 +184,65 @@ body {
     justify-content: space-between;
     align-items: center;
     margin-bottom: 15px;
-    padding: 12px;
-    background: rgba(255, 255, 255, 0.03);
-    border-radius: 10px;
+    padding: 14px;
+    background: white;
+    border: 1px solid var(--border-gray);
+    border-radius: 16px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.02);
 }
 
 .user-email {
     font-size: 13px;
-    color: var(--text-secondary);
+    color: var(--text-primary);
+    font-weight: 700;
     margin: 0;
 }
 
 .plan-badge {
     font-size: 10px;
-    font-weight: 700;
-    padding: 2px 8px;
+    font-weight: 800;
+    padding: 3px 10px;
     background: var(--brand-purple);
     border-radius: 20px;
     color: white;
+    box-shadow: 0 4px 10px rgba(107, 75, 255, 0.2);
 }
 
 .action-section {
     text-align: center;
-    margin-top: 25px;
-    padding-top: 20px;
-    border-top: 1px solid rgba(255, 255, 255, 0.05);
+    margin-top: 30px;
+    padding-top: 24px;
+    border-top: 1px solid var(--border-gray);
 }
 
 .hint {
     font-size: 12px;
     color: var(--text-secondary);
-    margin-bottom: 15px;
+    margin-bottom: 20px;
+    font-weight: 500;
 }
 
 .secondary-btn {
     display: inline-block;
-    padding: 8px 20px;
-    background: rgba(255, 255, 255, 0.05);
-    border-radius: 8px;
-    color: white;
+    padding: 10px 24px;
+    background: white;
+    border: 1px solid var(--border-gray);
+    border-radius: 10px;
+    color: var(--text-primary);
     text-decoration: none;
     font-size: 13px;
-    font-weight: 500;
-    transition: background 0.2s;
+    font-weight: 800;
+    transition: all 0.2s;
 }
 
 .secondary-btn:hover {
-    background: rgba(255, 255, 255, 0.1);
+    background: #fafafa;
+    border-color: #d1d5db;
 }
 
 .footer {
-    margin-top: 20px;
-    padding-top: 15px;
+    margin-top: 30px;
+    padding-top: 20px;
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -225,7 +252,8 @@ body {
     color: var(--text-secondary);
     text-decoration: none;
     font-size: 12px;
-    font-weight: 500;
+    font-weight: 700;
+    transition: color 0.2s;
 }
 
 .web-link:hover {
@@ -235,11 +263,13 @@ body {
 .logout-link {
     background: none;
     border: none;
-    color: #71717a;
-    font-size: 12px;
+    color: var(--text-secondary);
+    font-size: 11px;
     cursor: pointer;
     padding: 0;
-    font-weight: 500;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
 }
 
 .logout-link:hover {
