@@ -1,6 +1,6 @@
 /**
  * Verality Background Service Worker
- * Cookie-based session authentication
+ * Session-based authentication (no cookies needed)
  */
 
 let API_BASE_URL = 'http://localhost:3000';
@@ -51,31 +51,8 @@ async function checkSessionAndGetToken(sendResponse) {
             }
         }
 
-        // Check if user has Firebase session cookies
-        console.log('[Verality BG] Checking for session cookies at:', base);
-        const cookies = await chrome.cookies.getAll({
-            url: base
-        });
-
-        console.log('[Verality BG] Found cookies:', cookies.length);
-        if (cookies.length > 0) {
-            console.log('[Verality BG] Cookie names:', cookies.map(c => c.name).join(', '));
-        }
-
-        const hasSession = cookies.some(c =>
-            c.name.includes('session') ||
-            c.name.includes('firebase') ||
-            c.name.includes('__session')
-        );
-
-        if (!hasSession && cookies.length === 0) {
-            console.log('[Verality BG] No cookies found - user needs to log in');
-            sendResponse({ error: 'UNAUTHENTICATED', needsLogin: true });
-            return;
-        }
-
-        // Try to get token from session endpoint
-        console.log('[Verality BG] Session cookies found, fetching token...');
+        // Try to get token from session endpoint (works with localStorage auth too)
+        console.log('[Verality BG] Checking session at:', base);
         const sessionResponse = await fetch(`${base}/api/extension/session`, {
             credentials: 'include',
             headers: {
@@ -86,7 +63,7 @@ async function checkSessionAndGetToken(sendResponse) {
         console.log('[Verality BG] Session response:', sessionResponse.status);
 
         if (sessionResponse.status === 401) {
-            console.log('[Verality BG] Session endpoint returned 401');
+            console.log('[Verality BG] Not logged in - user needs to visit', base);
             sendResponse({ error: 'UNAUTHENTICATED', needsLogin: true });
             return;
         }
