@@ -1,5 +1,6 @@
 /**
  * Verality Background Service Worker
+ * Cookie-based session authentication
  */
 
 let API_BASE_URL = 'http://localhost:3000';
@@ -9,38 +10,8 @@ chrome.storage.local.get(['api_base_url'], (res) => {
 });
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-    if (message.action === 'START_GOOGLE_AUTH') {
-        // Open Firebase auth popup
-        chrome.windows.create({
-            url: chrome.runtime.getURL('src/auth/signin.html'),
-            type: 'popup',
-            width: 500,
-            height: 600
-        });
-        sendResponse({ success: true });
-        return true;
-    } else if (message.action === 'AUTH_SUCCESS') {
-        const token = message.token;
-        const origin = message.origin || 'http://localhost:3000';
-
-        if (!token) {
-            console.error('[Verality BG] No token provided');
-            sendResponse({ success: false, error: 'Empty token' });
-            return true;
-        }
-
-        console.log('[Verality BG] Storing token and verifying...');
-        API_BASE_URL = origin;
-
-        chrome.storage.local.set({
-            api_base_url: origin,
-            extension_token: token
-        }, () => {
-            verifyTokenWithAPI(sendResponse, token, origin);
-        });
-        return true;
-    } else if (message.action === 'GET_USER') {
-        verifyTokenWithAPI(sendResponse);
+    if (message.action === 'GET_USER') {
+        checkSessionAndGetToken(sendResponse);
         return true;
     } else if (message.action === 'CLEAR_STORAGE') {
         chrome.storage.local.clear(() => {
@@ -57,52 +28,70 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
 });
 
-async function verifyTokenWithAPI(sendResponse, overrideToken = null, overrideBase = null) {
+async function checkSessionAndGetToken(sendResponse) {
     try {
+        // First check if we have a stored token
         const storage = await chrome.storage.local.get(['extension_token', 'api_base_url']);
-        const token = overrideToken || storage.extension_token;
-        const base = overrideBase || storage.api_base_url || API_BASE_URL;
+        const base = storage.api_base_url || API_BASE_URL;
 
-        if (!token) {
-            console.error('[Verality BG] No token in storage');
-            sendResponse({ error: 'UNAUTHENTICATED' });
-            return;
+        if (storage.extension_token) {
+            // Verify existing token
+            const verifyResponse = await fetch(`${base}/api/extension/me`, {
+                headers: { 'Authorization': `Bearer ${storage.extension_token}` },
+                credentials: 'include'
+            });
+
+            if (verifyResponse.ok) {
+                const data = await verifyResponse.json();
+                console.log('[Verality BG] Existing token valid:', data.email);
+                sendResponse({ success: true, user: data });
+                return;
+            }
         }
 
-        console.log('[Verality BG] Verifying at:', base);
-        console.log('[Verality BG] Token length:', token.length);
-
-        const url = `${base}/api/extension/me`;
-
-        const response = await fetch(url, {
-            method: 'GET',
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Accept': 'application/json'
-            }
+        // No valid token, check if user is logged in via cookies
+        console.log('[Verality BG] Checking session at:', base);
+        const sessionResponse = await fetch(`${base}/api/extension/session`, {
+            credentials: 'include' // Include cookies
         });
 
-        console.log('[Verality BG] Status:', response.status);
-
-        if (response.status === 401) {
-            const data = await response.json().catch(() => ({}));
-            console.error('[Verality BG] 401:', data);
-            sendResponse({ error: `AUTH_FAILED: ${data.details || 'Unauthorized'}` });
+        if (sessionResponse.status === 401) {
+            console.log('[Verality BG] Not logged in');
+            sendResponse({ error: 'UNAUTHENTICATED', needsLogin: true });
             return;
         }
 
-        if (!response.ok) {
-            console.error('[Verality BG] Error:', response.status);
-            sendResponse({ error: `Server Error: ${response.status}` });
+        if (!sessionResponse.ok) {
+            console.error('[Verality BG] Session check failed:', sessionResponse.status);
+            sendResponse({ error: 'Session check failed' });
             return;
         }
 
-        const data = await response.json();
-        console.log('[Verality BG] Success! User:', data.email);
-        sendResponse({ success: true, user: data });
+        const { token, user } = await sessionResponse.json();
+
+        // Store the new token
+        await chrome.storage.local.set({
+            extension_token: token,
+            api_base_url: base
+        });
+
+        console.log('[Verality BG] Got token from session:', user.email);
+
+        // Verify it works
+        const verifyResponse = await fetch(`${base}/api/extension/me`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        if (verifyResponse.ok) {
+            const userData = await verifyResponse.json();
+            sendResponse({ success: true, user: userData });
+        } else {
+            sendResponse({ error: 'Token verification failed' });
+        }
+
     } catch (err) {
-        console.error('[Verality BG] Exception:', err);
-        sendResponse({ error: `Connection Error: ${err.message}` });
+        console.error('[Verality BG] Error:', err);
+        sendResponse({ error: err.message });
     }
 }
 
