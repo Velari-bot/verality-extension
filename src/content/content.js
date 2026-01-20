@@ -129,78 +129,10 @@ function updateActionButtons() {
             </svg>
             Sign in with Google
           </button>
-          <div id="auth-status" style="margin-top: 10px; font-size: 12px; color: #666;"></div>
         </div>
       `;
-
-      document.getElementById('verality-auth-btn').addEventListener('click', async () => {
-        const authStatus = document.getElementById('auth-status');
-        const authBtn = document.getElementById('verality-auth-btn');
-
-        try {
-          authStatus.textContent = 'Loading Firebase...';
-          authBtn.disabled = true;
-
-          // Dynamically load Firebase
-          const { initializeApp } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js');
-          const { getAuth, signInWithPopup, GoogleAuthProvider } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js');
-
-          const app = initializeApp({
-            apiKey: "AIzaSyCImCEmi5UP8_BrGgKXXhLTbYvVm7Du4wE",
-            authDomain: "ai-social-media-outreach-4e66c.firebaseapp.com",
-            projectId: "ai-social-media-outreach-4e66c"
-          });
-
-          const auth = getAuth(app);
-          const provider = new GoogleAuthProvider();
-
-          authStatus.textContent = 'Opening Google sign-in...';
-          const result = await signInWithPopup(auth, provider);
-          const idToken = await result.user.getIdToken();
-
-          authStatus.textContent = 'Getting extension token...';
-
-          // Try localhost first
-          let apiUrl = 'http://localhost:3000';
-          let response = await fetch(`${apiUrl}/api/extension/auth-token`, {
-            headers: { 'Authorization': `Bearer ${idToken}` }
-          }).catch(() => null);
-
-          // Fallback to production
-          if (!response || !response.ok) {
-            apiUrl = 'https://verality.io';
-            response = await fetch(`${apiUrl}/api/extension/auth-token`, {
-              headers: { 'Authorization': `Bearer ${idToken}` }
-            });
-          }
-
-          if (!response.ok) throw new Error('Failed to get token');
-
-          const { token } = await response.json();
-
-          authStatus.textContent = 'Verifying...';
-
-          // Send to background
-          safeSendMessage({
-            action: 'AUTH_SUCCESS',
-            token: token,
-            origin: apiUrl
-          }, (resp) => {
-            if (resp && resp.success) {
-              authStatus.textContent = '✓ Signed in!';
-              authStatus.style.color = '#38a169';
-              setTimeout(() => updateActionButtons(), 1000);
-            } else {
-              throw new Error(resp?.error || 'Auth failed');
-            }
-          });
-
-        } catch (error) {
-          console.error('[Verality] Auth error:', error);
-          authStatus.textContent = `Error: ${error.message}`;
-          authStatus.style.color = '#e53e3e';
-          authBtn.disabled = false;
-        }
+      document.getElementById('verality-auth-btn').addEventListener('click', () => {
+        safeSendMessage({ action: 'START_GOOGLE_AUTH' });
       });
     }
   });
@@ -224,6 +156,8 @@ chrome.runtime.onMessage.addListener((message) => {
       res.classList.remove('hidden');
       list.innerHTML = message.creators.map(c => `<div class="sidebar-creator-item"><b>${c.title}</b><br>${c.subscriberCount} subs</div>`).join('');
     }
+  } else if (message.action === 'AUTH_COMPLETE') {
+    updateActionButtons();
   }
 });
 
