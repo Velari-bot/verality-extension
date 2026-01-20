@@ -50,6 +50,16 @@
             "js": [
                 "src/content/auth-handler.js"
             ]
+        },
+        {
+            "matches": [
+                "*://localhost:3000/extension-connect*",
+                "*://verality.io/extension-connect*",
+                "*://www.verality.io/extension-connect*"
+            ],
+            "js": [
+                "src/content/connect-handler.js"
+            ]
         }
     ],
     "icons": {
