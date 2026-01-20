@@ -20,7 +20,6 @@ chrome.storage.local.get(['api_base_url'], (res) => {
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message.action === 'START_GOOGLE_AUTH') {
-        // Open the web-based auth page
         chrome.tabs.create({
             url: `${API_BASE_URL}/extension-auth`,
             active: true
@@ -66,25 +65,33 @@ async function verifyTokenWithAPI(sendResponse, overrideToken = null, overrideBa
         const base = normalizeBaseUrl(overrideBase || storage.api_base_url || API_BASE_URL);
 
         if (!token) {
+            console.error('[Verality BG] NO TOKEN');
             sendResponse({ error: 'UNAUTHENTICATED' });
             return;
         }
 
+        console.log('[Verality BG] Verifying token at:', base);
+        console.log('[Verality BG] Token:', token.substring(0, 30) + '...');
+
         const url = `${base}/api/extension/me`;
-        const myHeaders = new Headers();
-        myHeaders.append("Authorization", `Bearer ${token}`);
-        myHeaders.append("Accept", "application/json");
 
         const response = await fetch(url, {
             method: 'GET',
-            headers: myHeaders,
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Accept': 'application/json',
+                'Content-Type': 'application/json'
+            },
             cache: 'no-store'
         });
 
+        console.log('[Verality BG] Response status:', response.status);
+
         const data = await response.json().catch(() => ({}));
+        console.log('[Verality BG] Response data:', data);
 
         if (response.status === 401) {
-            sendResponse({ error: `AUTH_FAILED: ${data.details || 'Rejection'}` });
+            sendResponse({ error: `AUTH_FAILED: ${data.details || data.error || 'Token rejected'}` });
             return;
         }
 
@@ -95,6 +102,7 @@ async function verifyTokenWithAPI(sendResponse, overrideToken = null, overrideBa
 
         sendResponse({ success: true, user: data });
     } catch (err) {
+        console.error('[Verality BG] Fetch error:', err);
         sendResponse({ error: `Connection Error: ${err.message}` });
     }
 }
@@ -106,13 +114,12 @@ async function handleFetchCreators(query, tabId) {
 
         if (!extension_token) return;
 
-        const myHeaders = new Headers();
-        myHeaders.append("Authorization", `Bearer ${extension_token}`);
-        myHeaders.append("Content-Type", "application/json");
-
         const response = await fetch(`${base}/api/extension/search`, {
             method: 'POST',
-            headers: myHeaders,
+            headers: {
+                'Authorization': `Bearer ${extension_token}`,
+                'Content-Type': 'application/json'
+            },
             body: JSON.stringify({ query, limit: 50, platform: 'youtube' })
         });
 
