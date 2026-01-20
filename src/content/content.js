@@ -76,7 +76,7 @@ function injectVeralityUI() {
       </div>
       <div class="verality-status-indicator">
         <span class="pulse-dot"></span>
-        <span class="status-label">Live</span>
+        <span id="verality-live-status" class="status-label">Live</span>
       </div>
     </div>
     <div class="verality-panel-body">
@@ -86,7 +86,10 @@ function injectVeralityUI() {
       </div>
       
     <div id="verality-discovery-actions" class="action-area">
-      <!-- Logic handled in post-inject check -->
+      <div class="loading-state">
+         <div class="verality-spinner"></div>
+         <p class="auth-hint">Checking connection...</p>
+      </div>
     </div>
 
       <div id="verality-results-container" class="results-area hidden">
@@ -111,8 +114,11 @@ function injectVeralityUI() {
   // Prepend to sidebar
   secondaryColumn.prepend(container);
 
+  // Immediate check
   updateActionButtons(query);
 }
+
+let isUserAuthenticated = false;
 
 function updateActionButtons(query) {
   const actionArea = document.getElementById('verality-discovery-actions');
@@ -120,6 +126,9 @@ function updateActionButtons(query) {
 
   chrome.runtime.sendMessage({ action: 'GET_USER' }, (response) => {
     if (response && response.user) {
+      if (isUserAuthenticated) return; // Don't re-render if already set
+      isUserAuthenticated = true;
+
       // Authenticated - Show Search
       actionArea.innerHTML = `
         <button id="verality-run-btn" class="verality-btn-primary">
@@ -130,7 +139,9 @@ function updateActionButtons(query) {
       document.getElementById('verality-run-btn').addEventListener('click', () => {
         startDiscovery(query || "creators");
       });
+      document.getElementById('verality-live-status').textContent = 'Live';
     } else {
+      isUserAuthenticated = false;
       // Unauthenticated - Show Connect
       actionArea.innerHTML = `
         <div class="auth-required-state">
@@ -143,6 +154,7 @@ function updateActionButtons(query) {
       document.getElementById('verality-auth-btn').addEventListener('click', () => {
         window.open('https://verality.io/extension-auth', '_blank');
       });
+      document.getElementById('verality-live-status').textContent = 'Offline';
     }
   });
 }
@@ -158,17 +170,18 @@ function handleError(error) {
   const loadingState = document.getElementById('verality-loading-state');
   if (!loadingState) return;
 
-  if (error.includes('sign in') || error.includes('Session expired')) {
+  if (error.includes('sign in') || error.includes('Session expired') || error.includes('UNAUTHENTICATED')) {
+    isUserAuthenticated = false;
     loadingState.innerHTML = `
       <div class="error-container">
         <p class="error-text">Authentication Required</p>
         <p class="error-subtext">Connect your Verality account to search.</p>
-        <button id="verality-auth-btn" class="verality-btn-primary" style="margin-top: 10px;">
+        <button id="verality-auth-btn-err" class="verality-btn-primary" style="margin-top: 10px;">
           Connect Account
         </button>
       </div>
     `;
-    document.getElementById('verality-auth-btn').addEventListener('click', () => {
+    document.getElementById('verality-auth-btn-err').addEventListener('click', () => {
       window.open('https://verality.io/extension-auth', '_blank');
     });
   } else {
@@ -252,7 +265,12 @@ chrome.runtime.onMessage.addListener((message) => {
   }
 });
 
-// Periodic check for injection
+// Periodic check for injection and auto-auth re-check
 setInterval(() => {
-  if (!document.getElementById(VER_ID)) injectVeralityUI();
-}, 2000);
+  if (!document.getElementById(VER_ID)) {
+    injectVeralityUI();
+  } else if (!isUserAuthenticated) {
+    // If not logged in, re-check status every few seconds
+    updateActionButtons(getSearchQuery());
+  }
+}, 3000);
