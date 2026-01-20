@@ -1,7 +1,66 @@
 const VER_ID = 'verality-sidebar-panel';
+let refreshInterval = null;
 
 function debugLog(...args) {
   console.log('[Verality]', ...args);
+}
+
+/**
+ * Safe message sender to handle "Extension context invalidated" errors
+ */
+function safeSendMessage(message, callback) {
+  try {
+    if (!chrome.runtime?.id) {
+      handleInvalidatedContext();
+      return;
+    }
+    chrome.runtime.sendMessage(message, (response) => {
+      if (chrome.runtime.lastError) {
+        if (chrome.runtime.lastError.message.includes('context invalidated')) {
+          handleInvalidatedContext();
+        } else {
+          console.warn('[Verality] Runtime error:', chrome.runtime.lastError.message);
+        }
+        return;
+      }
+      if (callback) callback(response);
+    });
+  } catch (err) {
+    if (err.message.includes('context invalidated')) {
+      handleInvalidatedContext();
+    } else {
+      console.error('[Verality] unexpected error:', err);
+    }
+  }
+}
+
+function handleInvalidatedContext() {
+  debugLog('Extension context invalidated. Stopping refresh loop.');
+  if (refreshInterval) {
+    clearInterval(refreshInterval);
+    refreshInterval = null;
+  }
+
+  const panel = document.getElementById(VER_ID);
+  if (panel) {
+    const statusLabel = document.getElementById('verality-live-status');
+    if (statusLabel) {
+      statusLabel.textContent = 'Extension Reloaded';
+      statusLabel.parentElement.style.background = '#fee2e2';
+      statusLabel.style.color = '#ef4444';
+    }
+
+    const actionArea = document.getElementById('verality-discovery-actions');
+    if (actionArea) {
+      actionArea.innerHTML = `
+        <div class="error-container" style="padding: 15px; background: #fff1f2; border-radius: 12px; border: 1px solid #fecaca;">
+          <p style="color: #be123c; font-weight: 800; margin-bottom: 5px;">Refresh Required</p>
+          <p style="color: #e11d48; font-size: 11px; margin-bottom: 10px;">The extension was updated. Please refresh this page to continue.</p>
+          <button onclick="window.location.reload()" class="verality-btn-primary" style="background: #e11d48; width: 100%;">Refresh Page</button>
+        </div>
+      `;
+    }
+  }
 }
 
 // Function to extract search query or context
@@ -20,12 +79,6 @@ function getSearchQuery() {
 // Function to inject the Verality panel into the sidebar
 function injectVeralityUI() {
   const query = getSearchQuery();
-
-  // Cleanup old horizontal trigger if it exists (legacy)
-  const oldTrigger = document.getElementById('verality-trigger');
-  if (oldTrigger) oldTrigger.remove();
-
-  // Check if already injected
   if (document.getElementById(VER_ID)) return;
 
   // 1. Try to find the standard YouTube sidebar containers
@@ -41,13 +94,10 @@ function injectVeralityUI() {
 
     if (primary && primary.parentElement) {
       debugLog('Sidebar column missing or hidden, forcing Verality host...');
-
-      // Check if we already created a custom secondary
       let customSec = primary.parentElement.querySelector('#verality-custom-secondary');
       if (!customSec) {
         customSec = document.createElement('div');
         customSec.id = 'verality-custom-secondary';
-        // Style it to look like YouTube's sidebar layout
         customSec.style.width = '426px';
         customSec.style.marginLeft = '24px';
         customSec.style.flexShrink = '0';
@@ -58,12 +108,7 @@ function injectVeralityUI() {
     }
   }
 
-  if (!secondaryColumn) {
-    debugLog('Could not find or create a sidebar location.');
-    return;
-  }
-
-  debugLog('Injecting Sidebar UI');
+  if (!secondaryColumn) return;
 
   const container = document.createElement('div');
   container.id = VER_ID;
@@ -99,9 +144,7 @@ function injectVeralityUI() {
           </div>
           <button class="verality-btn-text">Export All</button>
         </div>
-        <div id="verality-sidebar-results" class="sidebar-list">
-          <!-- Creators injected here -->
-        </div>
+        <div id="verality-sidebar-results" class="sidebar-list"></div>
       </div>
 
       <div id="verality-loading-state" class="loading-area hidden">
@@ -111,10 +154,7 @@ function injectVeralityUI() {
     </div>
   `;
 
-  // Prepend to sidebar
   secondaryColumn.prepend(container);
-
-  // Immediate check
   updateActionButtons(query);
 }
 
@@ -124,12 +164,11 @@ function updateActionButtons(query) {
   const actionArea = document.getElementById('verality-discovery-actions');
   if (!actionArea) return;
 
-  chrome.runtime.sendMessage({ action: 'GET_USER' }, (response) => {
+  safeSendMessage({ action: 'GET_USER' }, (response) => {
     if (response && response.user) {
-      if (isUserAuthenticated) return; // Don't re-render if already set
+      if (isUserAuthenticated) return;
       isUserAuthenticated = true;
 
-      // Authenticated - Show Search
       actionArea.innerHTML = `
         <button id="verality-run-btn" class="verality-btn-primary">
           <svg viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M9.5,3A6.5,6.5 0 0,1 16,9.5C16,11.11 15.41,12.59 14.44,13.73L14.71,14H15.5L20.5,19L19,20.5L14,15.5V14.71L13.73,14.44C12.59,15.41 11.11,16 9.5,16A6.5,6.5 0 0,1 3,9.5A6.5,6.5 0 0,1 9.5,3M9.5,5C7,5 5,7 5,9.5C5,12 7,14 9.5,14C12,14 14,12 14,9.5C14,7 12,5 9.5,5Z"/></svg>
@@ -142,7 +181,6 @@ function updateActionButtons(query) {
       document.getElementById('verality-live-status').textContent = 'Live';
     } else {
       isUserAuthenticated = false;
-      // Unauthenticated - Show Connect
       actionArea.innerHTML = `
         <div class="auth-required-state">
           <p class="auth-hint">Advanced data requires connection</p>
@@ -161,9 +199,12 @@ function updateActionButtons(query) {
 
 function startDiscovery(query) {
   debugLog('Starting discovery for:', query);
-  document.getElementById('verality-discovery-actions').classList.add('hidden');
-  document.getElementById('verality-loading-state').classList.remove('hidden');
-  chrome.runtime.sendMessage({ action: 'FETCH_CREATORS', query: query });
+  const actionArea = document.getElementById('verality-discovery-actions');
+  const loadingArea = document.getElementById('verality-loading-state');
+  if (actionArea) actionArea.classList.add('hidden');
+  if (loadingArea) loadingArea.classList.remove('hidden');
+
+  safeSendMessage({ action: 'FETCH_CREATORS', query: query });
 }
 
 function handleError(error) {
@@ -174,22 +215,23 @@ function handleError(error) {
     isUserAuthenticated = false;
     loadingState.innerHTML = `
       <div class="error-container">
-        <p class="error-text">Authentication Required</p>
-        <p class="error-subtext">Connect your Verality account to search.</p>
+        <p class="error-text">Authentication Error</p>
+        <p class="error-subtext">${error}</p>
         <button id="verality-auth-btn-err" class="verality-btn-primary" style="margin-top: 10px;">
           Connect Account
         </button>
       </div>
     `;
-    document.getElementById('verality-auth-btn-err').addEventListener('click', () => {
+    const btn = document.getElementById('verality-auth-btn-err');
+    if (btn) btn.addEventListener('click', () => {
       window.open('https://verality.io/extension-auth', '_blank');
     });
   } else {
     loadingState.innerHTML = `
       <div class="error-container">
-        <p class="error-text">Error</p>
+        <p class="error-text">Request Failed</p>
         <p class="error-subtext">${error}</p>
-        <button onclick="location.reload()" class="verality-btn-text" style="margin-top: 10px;">Try Refreshing</button>
+        <button onclick="window.location.reload()" class="verality-btn-text" style="margin-top: 10px;">Try Refreshing</button>
       </div>
     `;
   }
@@ -217,11 +259,7 @@ function renderCreators(creators) {
         <div class="creator-name-row">
           <span class="creator-name">${c.title}</span>
           <div class="title-actions">
-            ${c.email ? `
-              <div class="email-indicator" title="Email found via ${c.emailSource.toUpperCase()}: ${c.email}">
-                <span class="status-dot green"></span>
-              </div>
-            ` : ''}
+            ${c.email ? `<div class="email-indicator" title="Found: ${c.email}"><span class="status-dot green"></span></div>` : ''}
             <a href="https://youtube.com/channel/${c.channelId}" target="_blank" class="ext-link">
               <svg viewBox="0 0 24 24" width="12" height="12"><path fill="currentColor" d="M14,3V5H17.59L7.76,14.83L9.17,16.24L19,6.41V10H21V3M19,19H5V5H12V3H5C3.89,3 3,3.9 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19V12H19V19Z"/></svg>
             </a>
@@ -231,8 +269,6 @@ function renderCreators(creators) {
           <span>${formatNumber(c.subscriberCount)} subs</span>
           <span class="sep"></span>
           <span>${formatNumber(c.avgViews)} views</span>
-          <span class="sep"></span>
-          <span>${c.engagementRate.toFixed(1)}% eng</span>
         </div>
         <div class="creator-reason">
           <span class="reason-tag">${c.reason}</span>
@@ -265,12 +301,11 @@ chrome.runtime.onMessage.addListener((message) => {
   }
 });
 
-// Periodic check for injection and auto-auth re-check
-setInterval(() => {
+// Periodic check loop
+refreshInterval = setInterval(() => {
   if (!document.getElementById(VER_ID)) {
     injectVeralityUI();
   } else if (!isUserAuthenticated) {
-    // If not logged in, re-check status every few seconds
     updateActionButtons(getSearchQuery());
   }
 }, 3000);
