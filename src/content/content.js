@@ -119,13 +119,13 @@ function updateActionButtons() {
 
       actionArea.innerHTML = `
         <div class="auth-required-state">
-          <p class="auth-hint">Log in to verality.io to use the extension</p>
-          <button id="verality-auth-btn" class="verality-btn-primary">Log in to Verality</button>
-          <p style="font-size: 11px; color: #999; margin-top: 10px;">After logging in, refresh this page</p>
+          <p class="auth-hint">Connect your Verality account</p>
+          <button id="verality-auth-btn" class="verality-btn-primary">Connect Extension</button>
+          <p style="font-size: 11px; color: #999; margin-top: 10px;">Opens connection page</p>
         </div>
       `;
       document.getElementById('verality-auth-btn').addEventListener('click', () => {
-        window.open('http://localhost:3000/login', '_blank');
+        window.open('http://localhost:3000/extension-connect', '_blank');
       });
     }
   });
