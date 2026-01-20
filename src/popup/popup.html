@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="UTF-8">
+  <title>Verality</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+
+<body>
+  <div class="verality-popup">
+    <div class="header">
+      <div class="brand">
+        <img src="../../public/icons/V.png" class="brand-logo" alt="V">
+        <span class="brand-name">Verality</span>
+      </div>
+      <div id="auth-status" class="status-badge">
+        <span class="pulse-dot"></span>
+        <span class="status-text">Checking...</span>
+      </div>
+    </div>
+
+    <div class="main-content">
+      <!-- Unauthenticated View -->
+      <div id="unauth-view" class="view hidden">
+        <div class="hero-section">
+          <h1>Welcome to <span class="purple-text">Verality</span></h1>
+          <p>Login with your Verality account to start discovering creators with advanced data.</p>
+        </div>
+        <button id="login-btn" class="login-button">Connect Account</button>
+      </div>
+
+      <!-- Authenticated View -->
+      <div id="auth-view" class="view hidden">
+        <div class="user-info">
+          <p class="user-email" id="user-email">user@email.com</p>
+          <div class="plan-badge" id="user-plan">PRO</div>
+        </div>
+
+        <div class="stats-grid">
+          <div class="stat-card">
+            <span class="stat-label">Credits Remaining</span>
+            <span class="stat-val" id="credit-count">---</span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-label">Access Level</span>
+            <span class="stat-val" id="access-level">Full</span>
+          </div>
+        </div>
+
+        <div class="action-section">
+          <p class="hint">Search on YouTube to see Verality insights.</p>
+          <a href="https://www.youtube.com" target="_blank" class="secondary-btn">Go to YouTube</a>
+        </div>
+      </div>
+    </div>
+
+    <div class="footer">
+      <a href="https://verality.io" target="_blank" class="web-link">Open Dashboard</a>
+      <button id="logout-btn" class="logout-link hidden">Sign out</button>
+    </div>
+  </div>
+  <script src="popup.js"></script>
+</body>
+
+</html>

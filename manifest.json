@@ -1,0 +1,67 @@
+{
+    "manifest_version": 3,
+    "name": "Verality - YouTube Creator Finder",
+    "version": "1.0.0",
+    "description": "Discover and enrich YouTube creators directly from your search results.",
+    "permissions": [
+        "storage",
+        "activeTab",
+        "scripting"
+    ],
+    "host_permissions": [
+        "https://www.youtube.com/*",
+        "https://api.clay.com/*",
+        "https://*.googleapis.com/*",
+        "https://verality.io/*",
+        "http://localhost:3000/*"
+    ],
+    "action": {
+        "default_popup": "src/popup/popup.html",
+        "default_icon": {
+            "16": "public/icons/V.png",
+            "48": "public/icons/V.png",
+            "128": "public/icons/V.png"
+        }
+    },
+    "background": {
+        "service_worker": "src/background/service-worker.js"
+    },
+    "content_scripts": [
+        {
+            "matches": [
+                "https://www.youtube.com/*"
+            ],
+            "js": [
+                "src/content/content.js"
+            ],
+            "css": [
+                "src/content/overlay.css"
+            ]
+        },
+        {
+            "matches": [
+                "https://verality.io/extension-auth*",
+                "http://localhost:3000/extension-auth*"
+            ],
+            "js": [
+                "src/content/auth-handler.js"
+            ]
+        }
+    ],
+    "icons": {
+        "16": "public/icons/V.png",
+        "48": "public/icons/V.png",
+        "128": "public/icons/V.png"
+    },
+    "web_accessible_resources": [
+        {
+            "resources": [
+                "src/content/overlay.css",
+                "public/icons/*"
+            ],
+            "matches": [
+                "https://www.youtube.com/*"
+            ]
+        }
+    ]
+}
