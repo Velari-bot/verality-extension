@@ -1,5 +1,6 @@
 /**
  * Verality Background Service Worker
+ * Simplified Web-Based OAuth
  */
 
 let API_BASE_URL = 'https://verality.io';
@@ -18,9 +19,17 @@ chrome.storage.local.get(['api_base_url'], (res) => {
 });
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-    if (message.action === 'AUTH_SUCCESS') {
+    if (message.action === 'START_GOOGLE_AUTH') {
+        // Open the web-based auth page
+        chrome.tabs.create({
+            url: `${API_BASE_URL}/extension-auth`,
+            active: true
+        });
+        sendResponse({ success: true });
+        return true;
+    } else if (message.action === 'AUTH_SUCCESS') {
         const token = message.token;
-        const origin = normalizeBaseUrl(message.origin || 'https://verality.io');
+        const origin = normalizeBaseUrl(message.origin || API_BASE_URL);
 
         if (!token) {
             sendResponse({ success: false, error: 'Empty token' });
@@ -62,9 +71,6 @@ async function verifyTokenWithAPI(sendResponse, overrideToken = null, overrideBa
         }
 
         const url = `${base}/api/extension/me`;
-        console.log('[Verality BG] Verifying at:', url);
-
-        // EXTRA EXPLICIT HEADERS TO PREVENT STRIPPING
         const myHeaders = new Headers();
         myHeaders.append("Authorization", `Bearer ${token}`);
         myHeaders.append("Accept", "application/json");
@@ -78,7 +84,6 @@ async function verifyTokenWithAPI(sendResponse, overrideToken = null, overrideBa
         const data = await response.json().catch(() => ({}));
 
         if (response.status === 401) {
-            console.error('[Verality BG] Rejection:', data.details || 'Unknown');
             sendResponse({ error: `AUTH_FAILED: ${data.details || 'Rejection'}` });
             return;
         }
@@ -90,7 +95,6 @@ async function verifyTokenWithAPI(sendResponse, overrideToken = null, overrideBa
 
         sendResponse({ success: true, user: data });
     } catch (err) {
-        console.error('[Verality BG] Fetch Error:', err.message);
         sendResponse({ error: `Connection Error: ${err.message}` });
     }
 }

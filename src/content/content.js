@@ -5,9 +5,6 @@ function debugLog(...args) {
   console.log('[Verality]', ...args);
 }
 
-/**
- * Safe message sender to handle "Extension context invalidated" errors
- */
 function safeSendMessage(message, callback) {
   try {
     if (!chrome.runtime?.id) {
@@ -85,7 +82,6 @@ function injectVeralityUI() {
   if (secondary && secondary.offsetWidth > 0) {
     secondary.prepend(container);
   } else {
-    // If no sidebar, we inject at the top of primary but restricted width
     container.style.maxWidth = '400px';
     container.style.marginBottom = '20px';
     primary.prepend(container);
@@ -123,12 +119,12 @@ function updateActionButtons() {
 
       actionArea.innerHTML = `
         <div class="auth-required-state">
-          <p class="auth-hint">Advanced data requires connection</p>
+          <p class="auth-hint">Connect your Verality account</p>
           <button id="verality-auth-btn" class="verality-btn-primary">Connect Account</button>
         </div>
       `;
       document.getElementById('verality-auth-btn').addEventListener('click', () => {
-        window.open('https://verality.io/extension-auth', '_blank');
+        safeSendMessage({ action: 'START_GOOGLE_AUTH' });
       });
     }
   });
