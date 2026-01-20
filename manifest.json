@@ -12,7 +12,8 @@
         "https://www.youtube.com/*",
         "https://api.clay.com/*",
         "https://*.googleapis.com/*",
-        "https://verality.io/*",
+        "*://verality.io/*",
+        "*://www.verality.io/*",
         "http://localhost:3000/*"
     ],
     "action": {
@@ -40,7 +41,8 @@
         },
         {
             "matches": [
-                "https://verality.io/extension-auth*",
+                "*://verality.io/extension-auth*",
+                "*://www.verality.io/extension-auth*",
                 "http://localhost:3000/extension-auth*"
             ],
             "js": [
