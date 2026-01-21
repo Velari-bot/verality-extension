@@ -215,19 +215,28 @@ async function handleNativeYouTubeDiscovery(query, tabId) {
             return;
         }
 
-        // 5. Try Free Email Extraction (QUOTA-FRIENDLY)
-        // We've already extracted from About during mapping. 
-        // We no longer do the expensive video-description check to save 1,500+ units per click.
-
-        // 6. Sync Credits & Trigger Backend Automations (Campaign + Outreach + Clay)
-        const syncResult = await syncCredits(query, creators);
-
-        // 7. Send to UI with updated credits
+        // 5. Send to UI IMMEDIATELY (Don't wait for backend sync/credits)
+        // This fixes the "Ranking creators..." stuck state
         chrome.tabs.sendMessage(tabId, {
             action: 'UPDATE_CREATORS',
-            creators,
-            creditsRemaining: syncResult?.creditsRemaining
+            creators
         });
+
+        // 6. Sync Credits & Trigger Backend Automations in Background
+        // We still await it but errors won't block the UI we just sent
+        try {
+            const syncResult = await syncCredits(query, creators);
+            // After sync, send another message to update the credits counter
+            if (syncResult?.creditsRemaining !== undefined) {
+                chrome.tabs.sendMessage(tabId, {
+                    action: 'UPDATE_CREATORS',
+                    creators, // Repeat creators to keep list state
+                    creditsRemaining: syncResult.creditsRemaining
+                });
+            }
+        } catch (syncErr) {
+            console.error('[Verality BG] Post-discovery sync failed:', syncErr);
+        }
 
     } catch (error) {
         console.error('[Verality BG] Discovery Error:', error);
