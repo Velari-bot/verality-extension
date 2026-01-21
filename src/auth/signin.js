@@ -25,19 +25,10 @@ button.addEventListener('click', async () => {
 
         status.textContent = 'Getting extension token...';
 
-        // Try localhost first, fallback to production
-        let apiUrl = 'http://localhost:3000';
-        let response = await fetch(`${apiUrl}/api/extension/auth-token`, {
+        const apiUrl = 'https://verality.io';
+        const response = await fetch(`${apiUrl}/api/extension/auth-token`, {
             headers: { 'Authorization': `Bearer ${idToken}` }
-        }).catch(() => null);
-
-        // If localhost fails, try production
-        if (!response || !response.ok) {
-            apiUrl = 'https://verality.io';
-            response = await fetch(`${apiUrl}/api/extension/auth-token`, {
-                headers: { 'Authorization': `Bearer ${idToken}` }
-            });
-        }
+        });
 
         if (!response.ok) {
             throw new Error('Failed to get extension token');

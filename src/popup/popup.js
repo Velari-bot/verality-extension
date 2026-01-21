@@ -43,7 +43,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Login button - opens connection page
     if (loginBtn) {
         loginBtn.addEventListener('click', () => {
-            chrome.tabs.create({ url: 'http://localhost:3000/extension-connect' });
+            chrome.tabs.create({ url: 'https://verality.io/extension-connect' });
         });
     }
 

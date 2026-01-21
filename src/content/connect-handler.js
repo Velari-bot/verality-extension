@@ -12,7 +12,7 @@ window.addEventListener('message', (event) => {
         console.log('[Verality Connect] Received token from website');
 
         const token = data.token;
-        const origin = data.origin || 'http://localhost:3000';
+        const origin = data.origin || 'https://verality.io';
 
         if (!token) {
             console.error('[Verality Connect] No token in message');

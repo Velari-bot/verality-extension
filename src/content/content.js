@@ -248,7 +248,7 @@ function updateActionButtons() {
         </div>
       `;
       document.getElementById('verality-auth-btn').addEventListener('click', () => {
-        window.open('http://localhost:3000/extension-connect', '_blank');
+        window.open('https://verality.io/extension-connect', '_blank');
       });
     }
   });

@@ -5,7 +5,7 @@ const YOUTUBE_API_KEY = 'AIzaSyBtx802VQPuumofi_96pS3MpQBK6AwSjYo';
  * Direct API access version
  */
 
-let API_BASE_URL = 'http://localhost:3000';
+let API_BASE_URL = 'https://verality.io';
 
 chrome.storage.local.get(['api_base_url'], (res) => {
     if (res.api_base_url) API_BASE_URL = res.api_base_url;
@@ -23,7 +23,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         return true;
     } else if (message.action === 'CLEAR_STORAGE') {
         chrome.storage.local.clear(() => {
-            API_BASE_URL = 'http://localhost:3000';
+            API_BASE_URL = 'https://verality.io';
             chrome.storage.local.set({ api_base_url: API_BASE_URL });
             sendResponse({ success: true });
         });

@@ -19,7 +19,7 @@ function handleAuth(token, origin) {
     console.log('[Verality Auth] Token verified in content script, sending to background...');
 
     // Explicitly set in local storage first to be 100% sure
-    const apiTarget = origin.includes('localhost') ? 'http://localhost:3000' : 'https://verality.io';
+    const apiTarget = 'https://verality.io';
 
     chrome.storage.local.set({
         extension_token: token,
