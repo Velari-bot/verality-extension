@@ -109,8 +109,8 @@ async function handleNativeYouTubeDiscovery(query, tabId) {
 
         const seenIds = new Set();
 
-        // 1. Paginated Search Loop
-        while (allValidCreators.length < targetCount && pagesSearched < 5) {
+        // 1. Paginated Search Loop (Deepened search to find more creators)
+        while (allValidCreators.length < targetCount && pagesSearched < 15) {
             pagesSearched++;
             console.log(`[Verality BG] Searching page ${pagesSearched}...`);
 
@@ -197,8 +197,8 @@ async function handleNativeYouTubeDiscovery(query, tabId) {
             }).filter(c => {
                 const titleLower = (c.name || "").toLowerCase();
                 const isTopic = titleLower.includes(' - topic') || titleLower.endsWith(' topic') || titleLower === 'topic';
-                // ENFORCED QUALITY: Min 1000 subs and 500 avg views
-                return !isTopic && c.followers >= 1000 && (c.avg_views || 0) >= 500;
+                // ENFORCED QUALITY: Min 1000 subs and 200 avg views
+                return !isTopic && c.followers >= 1000 && (c.avg_views || 0) >= 200;
             });
 
             allValidCreators = [...allValidCreators, ...pageCreators];
