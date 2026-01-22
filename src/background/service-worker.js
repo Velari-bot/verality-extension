@@ -161,15 +161,15 @@ async function handleNativeYouTubeDiscovery(query, tabId) {
                 const viewToSubRatio = avgViews / Math.max(followers, 100);
                 const engagement = Math.min(0.01 + (viewToSubRatio * 0.1), 0.15);
 
-                const sizeScore = Math.min(Math.log10(followers || 1) / 8, 1) * 0.2;
-                const engagementScore = Math.min(engagement * 15, 1) * 0.5; // Heavily weight engagement
-                const viewConsistency = Math.min(avgViews / 2000, 1.5) * 0.3; // Heavily weight views
+                const sizeScore = Math.min(Math.log10(followers || 1) / 9, 1) * 0.15; // Subs matter less
+                const engagementScore = Math.min(engagement * 20, 1) * 0.45; // Real engagement matters most
+                const viewScore = Math.min(Math.log10(avgViews || 1) / 6.5, 1.2) * 0.4; // Massively weight huge view counts
 
                 // Quality Penalty: Penalize if subs are high but views are disproportionately low
                 const performanceRatio = avgViews / Math.max(followers, 1000);
-                const qualityMultiplier = performanceRatio < 0.05 ? 0.5 : performanceRatio > 0.5 ? 1.2 : 1.0;
+                const qualityMultiplier = performanceRatio < 0.02 ? 0.3 : performanceRatio > 0.5 ? 1.3 : 1.0;
 
-                const totalScore = (engagementScore + sizeScore + viewConsistency) * qualityMultiplier;
+                const totalScore = (engagementScore + sizeScore + viewScore) * qualityMultiplier;
 
                 let insight = "Relevant Match";
                 if (performanceRatio > 1.0) insight = "Viral Sensation";
