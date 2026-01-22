@@ -161,13 +161,20 @@ async function handleNativeYouTubeDiscovery(query, tabId) {
                 const viewToSubRatio = avgViews / Math.max(followers, 100);
                 const engagement = Math.min(0.01 + (viewToSubRatio * 0.1), 0.15);
 
-                const sizeScore = Math.min(Math.log10(followers || 1) / 7, 1) * 0.5;
-                const engagementScore = Math.min(engagement * 10, 1) * 0.3;
-                const viewConsistency = Math.min(avgViews / 1000, 1.5) * 0.2;
-                const totalScore = engagementScore + sizeScore + viewConsistency;
+                const sizeScore = Math.min(Math.log10(followers || 1) / 8, 1) * 0.2;
+                const engagementScore = Math.min(engagement * 15, 1) * 0.5; // Heavily weight engagement
+                const viewConsistency = Math.min(avgViews / 2000, 1.5) * 0.3; // Heavily weight views
+
+                // Quality Penalty: Penalize if subs are high but views are disproportionately low
+                const performanceRatio = avgViews / Math.max(followers, 1000);
+                const qualityMultiplier = performanceRatio < 0.05 ? 0.5 : performanceRatio > 0.5 ? 1.2 : 1.0;
+
+                const totalScore = (engagementScore + sizeScore + viewConsistency) * qualityMultiplier;
 
                 let insight = "Relevant Match";
-                if (followers > 100000) insight = "Established Authority";
+                if (performanceRatio > 1.0) insight = "Viral Sensation";
+                else if (followers > 100000 && performanceRatio > 0.2) insight = "Top Tier Creator";
+                else if (followers > 100000) insight = "Established Authority";
                 else if (viewToSubRatio > 1.5) insight = "Explosive Growth";
                 else if (viewToSubRatio > 0.8) insight = "High Engagement";
 
@@ -189,8 +196,8 @@ async function handleNativeYouTubeDiscovery(query, tabId) {
             }).filter(c => {
                 const titleLower = (c.name || "").toLowerCase();
                 const isTopic = titleLower.includes(' - topic') || titleLower.endsWith(' topic') || titleLower === 'topic';
-                // ENFORCED QUALITY: Min 100 subs and 10 avg views (Loosened for more discovery)
-                return !isTopic && c.followers >= 100 && (c.avg_views || 0) >= 10;
+                // RESTORED HIGH QUALITY: Min 1000 subs and 500 avg views
+                return !isTopic && c.followers >= 1000 && (c.avg_views || 0) >= 500;
             });
 
             console.log(`[Verality BG] Page ${pagesSearched} found ${pageCreators.length} valid creators out of ${channels.length} searched.`);
