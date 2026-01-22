@@ -156,28 +156,20 @@ async function handleNativeYouTubeDiscovery(query, tabId) {
                 const totalViews = parseInt(c.statistics.viewCount || '0');
                 const videoCount = parseInt(c.statistics.videoCount || '1');
                 const title = snippet.title || "";
-                const description = snippet.description || "";
 
-                // Stats Calculations
                 const avgViews = Math.floor(totalViews / Math.max(videoCount, 1));
                 const viewToSubRatio = avgViews / Math.max(followers, 100);
                 const engagement = Math.min(0.01 + (viewToSubRatio * 0.1), 0.15);
 
                 const sizeScore = Math.min(Math.log10(followers || 1) / 7, 1) * 0.5;
                 const engagementScore = Math.min(engagement * 10, 1) * 0.3;
-
-                // NEW: View Consistency Score (penalize if they have 5k videos but low total views)
                 const viewConsistency = Math.min(avgViews / 1000, 1.5) * 0.2;
-
                 const totalScore = engagementScore + sizeScore + viewConsistency;
 
                 let insight = "Relevant Match";
                 if (followers > 100000) insight = "Established Authority";
                 else if (viewToSubRatio > 1.5) insight = "Explosive Growth";
                 else if (viewToSubRatio > 0.8) insight = "High Engagement";
-
-                // QUOTA OPTIMIZATION: Extract email directly from snippet already fetched
-                const extractedEmail = extractEmailFromText(title) || extractEmailFromText(description);
 
                 return {
                     id: c.id,
@@ -191,16 +183,17 @@ async function handleNativeYouTubeDiscovery(query, tabId) {
                     location: snippet.country || 'US',
                     niche: query,
                     ranking_score: totalScore,
-                    email: extractedEmail,
-                    email_source: extractedEmail ? 'youtube_about' : null
+                    email: extractEmailFromText(title) || extractEmailFromText(snippet.description || ""),
+                    email_source: 'youtube_about'
                 };
             }).filter(c => {
                 const titleLower = (c.name || "").toLowerCase();
                 const isTopic = titleLower.includes(' - topic') || titleLower.endsWith(' topic') || titleLower === 'topic';
-                // ENFORCED QUALITY: Min 1000 subs and 200 avg views
-                return !isTopic && c.followers >= 1000 && (c.avg_views || 0) >= 200;
+                // ENFORCED QUALITY: Min 100 subs and 10 avg views (Loosened for more discovery)
+                return !isTopic && c.followers >= 100 && (c.avg_views || 0) >= 10;
             });
 
+            console.log(`[Verality BG] Page ${pagesSearched} found ${pageCreators.length} valid creators out of ${channels.length} searched.`);
             allValidCreators = [...allValidCreators, ...pageCreators];
             nextPageToken = searchData.nextPageToken;
             if (!nextPageToken) break;
