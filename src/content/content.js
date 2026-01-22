@@ -1,6 +1,7 @@
 const VER_ID = 'verality-sidebar-panel';
 let refreshInterval = null;
 let lastSearchQuery = null;
+let currentCreators = [];
 let isUserAuthenticated = false;
 
 function debugLog(...args) {
@@ -261,6 +262,37 @@ function formatSubs(count) {
   return count.toString();
 }
 
+function exportToCSV() {
+  if (!currentCreators || currentCreators.length === 0) {
+    alert('No creators to export.');
+    return;
+  }
+
+  const headers = ['Name', 'Handle', 'Subscribers', 'Avg Views', 'Engagement', 'Email', 'Insight', 'Profile URL'];
+  const rows = currentCreators.map(c => [
+    `"${(c.name || '').replace(/"/g, '""')}"`,
+    `"${(c.handle || '').replace(/"/g, '""')}"`,
+    c.followers || 0,
+    c.avg_views || 0,
+    `${((c.engagement_rate || 0) * 100).toFixed(1)}%`,
+    `"${c.email || ''}"`,
+    `"${c.insight_tag || ''}"`,
+    `https://youtube.com/@${c.handle}`
+  ]);
+
+  const csvContent = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+
+  const link = document.createElement('a');
+  link.setAttribute('href', url);
+  link.setAttribute('download', `verality_youtube_creators_${new Date().toISOString().split('T')[0]}.csv`);
+  link.style.visibility = 'hidden';
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+}
+
 function startDiscovery(query) {
   switchView('loading');
   safeSendMessage({ action: 'FETCH_CREATORS', query });
@@ -304,6 +336,7 @@ chrome.runtime.onMessage.addListener((message) => {
           });
         }
       } else {
+        currentCreators = message.creators;
         switchView('results');
 
         const count = message.creators.length;
@@ -355,7 +388,19 @@ chrome.runtime.onMessage.addListener((message) => {
 
           document.getElementById('verality-export-btn')?.addEventListener('click', (e) => {
             e.preventDefault();
-            alert('Exporting ' + count + ' creators to CSV...');
+            const btn = e.target;
+            const originalText = btn.innerText;
+            btn.innerText = 'Exporting...';
+
+            try {
+              exportToCSV();
+              btn.innerText = 'Downloaded!';
+              setTimeout(() => { btn.innerText = originalText; }, 2000);
+            } catch (err) {
+              console.error('Export failed:', err);
+              btn.innerText = 'Error';
+              setTimeout(() => { btn.innerText = originalText; }, 2000);
+            }
           });
         }
       }
