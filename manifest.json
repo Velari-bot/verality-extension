@@ -1,12 +1,11 @@
 {
     "manifest_version": 3,
     "name": "Verality - YouTube Creator Finder",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "description": "Discover and enrich YouTube creators directly from your search results.",
     "permissions": [
         "storage",
         "activeTab",
-        "scripting",
         "identity",
         "cookies"
     ],
